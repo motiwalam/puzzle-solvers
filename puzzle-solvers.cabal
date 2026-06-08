@@ -1,0 +1,18 @@
+cabal-version:   3.14
+name:            puzzle-solvers
+version:         0.1.0.0
+license:         NONE
+author:          Mustafa Motiwala
+maintainer:      mustafa@motiwala.ca
+build-type:      Simple
+extra-doc-files: README.md
+
+common warnings
+    ghc-options: -Wall
+
+executable puzzle-solvers
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:    base ^>=4.18.3.0
+    hs-source-dirs:   app
+    default-language: Haskell2010
