@@ -1,8 +1,8 @@
 module Solvers.Net (netSolver) where
 
-import Solvers.Solver (GameDescription, Solution, Solver (..))
+import Solvers.Solver (Solver (..))
 
-solve :: GameDescription -> Solution
+solve :: String -> String
 solve gameDesc = "NOT IMPLEMENTED: net solver in progress"
 
 netSolver :: Solver
