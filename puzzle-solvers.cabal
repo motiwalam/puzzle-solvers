@@ -20,11 +20,13 @@ executable puzzle-solvers
     Solvers.Flip
     Solvers.Net
     Solvers.Solver
+    Util.LinAlg
 
   build-depends:
     , base                  ^>=4.18.3.0
     , containers
     , optparse-applicative
+    , split 
 
   hs-source-dirs:   app
   default-language: Haskell2010
