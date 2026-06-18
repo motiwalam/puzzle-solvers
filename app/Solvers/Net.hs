@@ -14,7 +14,7 @@ import Control.Monad (forM_, unless, when)
 import Control.Monad.State
 
 import Util.UnorderedPair (UPair(..))
-import Solvers.Solver (Solver (..))
+import Solvers.Solver (Solver (..), SolverPass, (-->), fix, iter, run)
 
 type Node = Int
 type Edge = UPair Node
@@ -191,11 +191,9 @@ parseDesc gameDesc =
 
 
 ------------------- solving -------------------
-
 -- a move consists of a node, the neighbors it should be connected to, and a "justification" string
 data Move = Move Node [Node] String
     deriving (Eq, Show)
-type SolverPass = State Game [Move]
 type Solution = ([Move], Game)
 
 -- check that the game state is consistent with a possible solution
@@ -229,28 +227,6 @@ wholeSale g1 g2 msg = [Move i (head p2) msg
         , length p1 /= 1 && length p2 == 1
     ]
 
-composeSolverPasses :: [SolverPass] -> SolverPass
--- passes are applied in list order, e.g [p1, p2] means do pass 1 first then pass 2
--- so it is important to use foldl here
-composeSolverPasses passes = do
-    ms <- sequence passes
-    return $ concat ms
-
-repeatPass :: Int -> SolverPass -> SolverPass
-repeatPass n = composeSolverPasses . replicate n
-
-repeatUntilNoChange :: SolverPass -> SolverPass
-repeatUntilNoChange p = do
-    g <- get
-    ms <- p
-    g' <- get
-    if solved g
-    then return []
-    else if g == g'
-    then return ms
-    else do
-        ms' <- repeatUntilNoChange p
-        return $ ms ++ ms'
 
 shouldExclude :: Game -> Edge -> Bool
 shouldExclude g e@(UPair i j) = or [
@@ -268,7 +244,7 @@ shouldInclude g (UPair i j) = or [
 
 -- consider each edge in turn and rule them out/in based on the local structure of
 -- the graph (either the ambient graph, or the spanning tree being built)
-localStructurePass :: SolverPass
+localStructurePass :: SolverPass Game Move
 localStructurePass = do
     g <- get
     let es = allPossibleEdges (width g) (height g)
@@ -289,7 +265,7 @@ localStructurePass = do
 -- and decide whether to include it or exclude it by simply trying each option
 -- and seeing if either one leads to a definite answer (either a solution or a contradiction)
 -- if so, we terminate and return that move 
-boundedLookAheadPass :: Int -> SolverPass
+boundedLookAheadPass :: Int -> SolverPass Game Move
 boundedLookAheadPass n = do
     og <- get
     let es = candidateEdges og
@@ -301,7 +277,7 @@ boundedLookAheadPass n = do
             where
                 isEdgeDetermined e = shouldExclude g e || shouldInclude g e
 
-        look = repeatPass n localStructurePass
+        look = iter n localStructurePass
 
         tryEdge og e = do
             g <- get
@@ -331,7 +307,7 @@ boundedLookAheadPass n = do
 
 -- in the interest of not looking ahead too much, we start with a small bound
 -- on the look ahead and keep doubling until we can decide a move
-lookAheadPass :: Int -> SolverPass
+lookAheadPass :: Int -> SolverPass Game Move
 lookAheadPass max = do
     g <- get
     if solved g
@@ -351,12 +327,12 @@ solve' g = extractSolution g' moves where
     extractSolution g' moves = Right (moves, g')
     -- extractSolution g' moves = if solved g' then Right (moves, g') else Left "Could not solve the puzzle with the implemented techniques"
 
-    solver = repeatUntilNoChange $ composeSolverPasses [
-            repeatUntilNoChange localStructurePass
-          , lookAheadPass (numNodes g * 4)
-        ]
+    solver = fix (
+            fix localStructurePass
+        --> lookAheadPass (numNodes g * 4)
+        )
 
-    (moves, g') = runState solver g
+    (moves, g') = run solver g
 
 gridPos :: Game -> Node -> (Int, Int)
 gridPos g i = (i `div` w, i `mod` w) where w = width g
